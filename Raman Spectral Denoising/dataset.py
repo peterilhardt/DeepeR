@@ -28,7 +28,7 @@ class RamanDataset(Dataset):
         elif len(input_spectrum) > spectrum_length:
             padded_spectrum = input_spectrum[0:spectrum_length]
         else:
-            padded_spectrum = np.pad(input_spectrum, ((0,spectrum_length - len(input_spectrum)),(0,0)), 'reflect')
+            padded_spectrum = np.pad(input_spectrum, (0, spectrum_length - len(input_spectrum)), 'reflect')
 
         return padded_spectrum
     
