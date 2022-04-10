@@ -10,7 +10,7 @@ import pandas as pd
 import scipy.io
 import scipy.signal
 import math
-from skimage.measure import compare_ssim as sk_ssim
+from skimage.metrics import structural_similarity as sk_ssim
 
 import torch
 from torch import nn
