@@ -30,7 +30,7 @@ class RamanImageDataset(Dataset):
         self.on_epoch_end()
         
     def load_image(self, id_name):
-        input_path =self.path + id_name + ".mat"
+        input_path = os.path.join(self.path, id_name + ".mat")
         
         output_data = scipy.io.loadmat(input_path)
         output_values = list(output_data.values())
