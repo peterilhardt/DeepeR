@@ -26,12 +26,18 @@ import torch.utils.data.distributed
 import torch.multiprocessing as mp
 from torch.utils.data import Dataset, DataLoader
 from torch.utils.tensorboard import SummaryWriter
-from torchvision import transforms, utils
 
 import model, dataset, utilities
 
 parser = argparse.ArgumentParser(description='HyRISR Training')
 
+parser.add_argument('--dataset', default='', type=str, 
+                    help='path to CSV listing image IDs to use as dataset '
+                         '(images should be in same location)')
+parser.add_argument('--train-val-split', default=85, type=int,
+                    help='percentage of data to use for training (default: 85)')
+parser.add_argument('--id', default='final', type=str,
+                    help="Unique ID for the model or run")
 parser.add_argument('-j', '--workers', default=0, type=int, metavar='N',
                     help='number of data loading workers (default: 0)')
 parser.add_argument('--epochs', default=200, type=int, metavar='N',
@@ -64,15 +70,15 @@ parser.add_argument('--spectrum-len', default=500, type=int,
 parser.add_argument('--seed', default=None, type=int,
                     help='seed for initializing training. ')
 parser.add_argument('--gpu', default=0, type=int,
-                    help='GPU id to use.')
-parser.add_argument('--world-size', default=-1, type=int,
+                    help='GPU id to use (use -1 for CPU)')
+parser.add_argument('--world-size', default=1, type=int,
                     help='number of nodes for distributed training')
-parser.add_argument('--rank', default=-1, type=int,
+parser.add_argument('--rank', default=0, type=int,
                     help='node rank for distributed training')
-parser.add_argument('--dist-url', default='tcp://224.66.41.62:23456', type=str,
+parser.add_argument('--dist-url', default='tcp://localhost:12355', type=str,
                     help='url used to set up distributed training')
 parser.add_argument('--dist-backend', default='nccl', type=str,
-                    help='distributed backend')
+                    help='distributed backend (use nccl for GPUs on Linux, gloo otherwise)')
 parser.add_argument('--multiprocessing-distributed', action='store_true',
                     help='Use multi-processing distributed training to launch '
                          'N processes per node, which has N GPUs. This is the '
@@ -90,77 +96,98 @@ def main():
     if args.dist_url == "env://" and args.world_size == -1:
         args.world_size = int(os.environ["WORLD_SIZE"])
 
+    args.use_gpu = torch.cuda.is_available() and args.gpu != -1  # -1 indicates want to use CPU
     args.distributed = args.world_size > 1 or args.multiprocessing_distributed
 
-    ngpus_per_node = torch.cuda.device_count()
+    cores = torch.cuda.device_count() if args.use_gpu else torch.get_num_threads()  # mp.cpu_count()
+
+    if not args.use_gpu:  
+        args.dist_backend = 'gloo'  # nccl doesn't work with CPUs
+        args.gpu = 0
 
     if args.multiprocessing_distributed:
-        args.world_size = ngpus_per_node * args.world_size
-        mp.spawn(main_worker, nprocs=ngpus_per_node, args=(ngpus_per_node, args))
+        args.world_size = cores * args.world_size
+        mp.spawn(main_worker, nprocs=cores, args=(cores, args))
     else:
-        main_worker(args.gpu, ngpus_per_node, args)
+        main_worker(args.gpu, cores, args)
 
 def main_worker(gpu, ngpus_per_node, args):
     args.gpu = gpu
 
     if args.gpu is not None:
-        print("Use GPU: {} for training".format(args.gpu))
+        if args.use_gpu:
+            print("Use GPU: {} for training".format(args.gpu))
+        else:
+            print("Use CPU: {} for training".format(args.gpu))
 
     if args.distributed:
         if args.dist_url == "env://" and args.rank == -1:
             args.rank = int(os.environ["RANK"])
         if args.multiprocessing_distributed:
             args.rank = args.rank * ngpus_per_node + gpu
+
         dist.init_process_group(backend=args.dist_backend, init_method=args.dist_url,
                                 world_size=args.world_size, rank=args.rank)
+
+        # os.environ['MASTER_ADDR'] = 'localhost'
+        # os.environ['MASTER_PORT'] = '12355'
+        # dist.init_process_group(backend=args.dist_backend,
+        #                         world_size=args.world_size, rank=args.rank)
     
     # ----------------------------------------------------------------------------------------
     # Create model(s) and send to device(s)
     # ----------------------------------------------------------------------------------------
     scale = args.hr_image_size // args.lr_image_size
     net = model.Hyperspectral_RCAN(args.spectrum_len, scale).float()
+    args.device = torch.device('cuda:{}'.format(args.gpu)) if args.use_gpu else torch.device('cpu')
 
     if args.distributed:
         if args.gpu is not None:
-            torch.cuda.set_device(args.gpu)
             args.batch_size = int(args.batch_size / ngpus_per_node)
             args.workers = int((args.workers + ngpus_per_node - 1) / ngpus_per_node)
-
-            net.cuda(args.gpu)
-            net = torch.nn.parallel.DistributedDataParallel(net, device_ids=[args.gpu])
+            
+            if args.use_gpu:
+                torch.cuda.set_device(args.gpu)
+                net.cuda(args.gpu)
+                net = torch.nn.parallel.DistributedDataParallel(net, device_ids=[args.gpu])
+            else:
+                net.to(args.device)
+                net = torch.nn.parallel.DistributedDataParallel(net)
         else:
-            net.cuda(args.gpu)
+            net.to(args.device)
             net = torch.nn.parallel.DistributedDataParallel(net)
     elif args.gpu is not None:
-        torch.cuda.set_device(args.gpu)
-        net.cuda(args.gpu)
+        if args.use_gpu:
+            torch.cuda.set_device(args.gpu)
+        net.to(args.device)
     else:
-        net = nn.DataParallel(net).cuda()
+        net = nn.DataParallel(net).to(args.device)
        
     # ----------------------------------------------------------------------------------------
     # Define dataset path and data splits
     # ----------------------------------------------------------------------------------------    
-    dataset_path = "\Path\To\Dataset\"
-    image_ids_csv = pd.read_csv(dataset_path + "Image_IDs.csv")
+    #dataset_path = "\Path\To\Dataset\"
+    assert os.path.exists(args.dataset), 'Could not find path to training data file!'
+    image_ids_csv = pd.read_csv(args.dataset)
 
     image_ids = image_ids_csv["id"].values
 
-    train_split = round(0.85 * len(image_ids))
-    val_split = round(0.10 * len(image_ids))
-    test_split = round(0.05 * len(image_ids))
+    train_split = round(args.train_val_split / 100 * len(image_ids))
+    val_split = round((100 - args.train_val_split) / 100 * len(image_ids))
+    #test_split = round(0.05 * len(image_ids))
     train_ids = image_ids[:train_split]
     val_ids = image_ids[train_split:train_split+val_split]
-    test_ids = image_ids[train_split+val_split:]
+    #test_ids = image_ids[train_split+val_split:]
 
     # ----------------------------------------------------------------------------------------
     # Create datasets and dataloaders
     # ----------------------------------------------------------------------------------------
-    Raman_Dataset_Train = dataset.RamanImageDataset(train_ids, dataset_path, batch_size = args.batch_size, 
+    Raman_Dataset_Train = dataset.RamanImageDataset(train_ids, os.path.dirname(args.dataset), batch_size = args.batch_size, 
                                                     hr_image_size = args.hr_image_size, lr_image_size = args.lr_image_size,
                                                     spectrum_len = args.spectrum_len, spectrum_shift = 0.1, spectrum_flip = True, 
                                                     horizontal_flip = True, vertical_flip = True, rotate = True, patch = True, mixup = True)
 
-    Raman_Dataset_Val = dataset.RamanImageDataset(val_ids, dataset_path, batch_size = args.batch_size, 
+    Raman_Dataset_Val = dataset.RamanImageDataset(val_ids, os.path.dirname(args.dataset), batch_size = args.batch_size, 
                                                     hr_image_size = args.hr_image_size, lr_image_size = args.lr_image_size,
                                                     spectrum_len = args.spectrum_len)
 
@@ -172,8 +199,8 @@ def main_worker(gpu, ngpus_per_node, args):
     # ----------------------------------------------------------------------------------------
 
     # ------------Criterion------------
-    criterion = nn.L1Loss().cuda(args.gpu)
-    criterion_MSE = nn.MSELoss().cuda(args.gpu)
+    criterion = nn.L1Loss().to(args.device)
+    criterion_MSE = nn.MSELoss().to(args.device)
 
     # ------------Optimizer------------
     if args.optimizer == "sgd":
@@ -208,8 +235,12 @@ def main_worker(gpu, ngpus_per_node, args):
 
     date = datetime.datetime.now().strftime("%Y_%m_%d")
 
-    log_dir = "runs/{}_{}_{}_{}_{}x".format(date, args.optimizer, args.scheduler, args.network, scale)
-    models_dir = "{}_{}_{}_{}_{}x.pt".format(date, args.optimizer, args.scheduler, args.network, scale)
+    if not os.path.exists('./models'):
+        os.mkdir('models')
+    if not os.path.exists('./runs'):
+        os.mkdir('runs')
+    log_dir = "runs/{}_{}_{}_{}_{}x_{}".format(date, args.optimizer, args.scheduler, args.network, scale, args.id)
+    models_dir = "models/{}_{}_{}_{}_{}x_{}.pt".format(date, args.optimizer, args.scheduler, args.network, scale, args.id)
 
     writer = SummaryWriter(log_dir = log_dir)
 
@@ -226,7 +257,10 @@ def main_worker(gpu, ngpus_per_node, args):
         writer.add_scalar('SSIM/train', train_ssim, epoch)
         writer.add_scalar('SSIM/val', valid_ssim, epoch)
                         
-    torch.save(net.state_dict(), models_dir)
+    if args.multiprocessing_distributed:
+        torch.save(net.module.state_dict(), models_dir)
+    else:
+        torch.save(net.state_dict(), models_dir)
     print('Finished Training')
 
 def train(dataloader, net, optimizer, scheduler, criterion, criterion_MSE, epoch, args):
@@ -241,10 +275,10 @@ def train(dataloader, net, optimizer, scheduler, criterion, criterion_MSE, epoch
     for i, data in enumerate(dataloader):
         inputs = data['input_image']
         inputs = inputs.float()
-        inputs = inputs.cuda(args.gpu)
+        inputs = inputs.to(args.device)
         target = data['output_image']
         target = target.float()
-        target = target.cuda(args.gpu)
+        target = target.to(args.device)
 
         output = net(inputs)
 
@@ -286,10 +320,10 @@ def validate(dataloader, net, criterion_MSE, args):
         for i, data in enumerate(dataloader):
             inputs = data['input_image']
             inputs = inputs.float()
-            inputs = inputs.cuda(args.gpu)
+            inputs = inputs.to(args.device)
             target = data['output_image']
             target = target.float()
-            target = target.cuda(args.gpu)
+            target = target.to(args.device)
 
             output = net(inputs)
 

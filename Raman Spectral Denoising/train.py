@@ -13,7 +13,6 @@ import matplotlib.pyplot as plt
 import scipy.io
 import scipy.signal
 import math
-from skimage.measure import compare_ssim as sk_ssim
 
 import torch
 from torch import nn
@@ -26,16 +25,23 @@ import torch.utils.data.distributed
 import torch.multiprocessing as mp
 from torch.utils.data import Dataset, DataLoader
 from torch.utils.tensorboard import SummaryWriter
-from torchvision import transforms, utils
 
 import model, dataset, utilities
 
 
 parser = argparse.ArgumentParser(description='DeNoiser Training')
 
+parser.add_argument('--features', default='', type=str, 
+                    help='path to training data features/inputs')
+parser.add_argument('--labels', default='', type=str, 
+                    help='path to training data labels')
+parser.add_argument('--train-val-split', default=90, type=int,
+                    help='percentage of data to use for training (default: 90)')
+parser.add_argument('--id', default='final', type=str,
+                    help="Unique ID for the model or run")
 parser.add_argument('-j', '--workers', default=0, type=int, metavar='N',
                     help='number of data loading workers (default: 0)')
-parser.add_argument('--epochs', default=500, type=int, metavar='N',
+parser.add_argument('--epochs', default=200, type=int, metavar='N',
                     help='number of total epochs to run (default: 200)')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
@@ -61,15 +67,15 @@ parser.add_argument('--spectrum-len', default=500, type=int,
 parser.add_argument('--seed', default=None, type=int,
                     help='seed for initializing training. ')
 parser.add_argument('--gpu', default=0, type=int,
-                    help='GPU id to use.')
-parser.add_argument('--world-size', default=-1, type=int,
+                    help='GPU id to use (use -1 for CPU)')
+parser.add_argument('--world-size', default=1, type=int,
                     help='number of nodes for distributed training')
-parser.add_argument('--rank', default=-1, type=int,
+parser.add_argument('--rank', default=0, type=int,
                     help='node rank for distributed training')
-parser.add_argument('--dist-url', default='tcp://224.66.41.62:23456', type=str,
+parser.add_argument('--dist-url', default='tcp://localhost:12355', type=str,
                     help='url used to set up distributed training')
 parser.add_argument('--dist-backend', default='nccl', type=str,
-                    help='distributed backend')
+                    help='distributed backend (use nccl for GPUs on Linux, gloo otherwise)')
 parser.add_argument('--multiprocessing-distributed', action='store_true',
                     help='Use multi-processing distributed training to launch '
                          'N processes per node, which has N GPUs. This is the '
@@ -88,66 +94,88 @@ def main():
     if args.dist_url == "env://" and args.world_size == -1:
         args.world_size = int(os.environ["WORLD_SIZE"])
 
+    args.use_gpu = torch.cuda.is_available() and args.gpu != -1  # -1 indicates want to use CPU
     args.distributed = args.world_size > 1 or args.multiprocessing_distributed
 
-    ngpus_per_node = torch.cuda.device_count()
+    cores = torch.cuda.device_count() if args.use_gpu else torch.get_num_threads()  # mp.cpu_count()
+
+    if not args.use_gpu:  
+        args.dist_backend = 'gloo'  # nccl doesn't work with CPUs
+        args.gpu = 0
 
     if args.multiprocessing_distributed:
-        args.world_size = ngpus_per_node * args.world_size
-        mp.spawn(main_worker, nprocs=ngpus_per_node, args=(ngpus_per_node, args))
+        args.world_size = cores * args.world_size
+        mp.spawn(main_worker, nprocs=cores, args=(cores, args))
     else:
-        main_worker(args.gpu, ngpus_per_node, args)
+        main_worker(args.gpu, cores, args)
 
 def main_worker(gpu, ngpus_per_node, args):
     args.gpu = gpu
 
     if args.gpu is not None:
-        print("Use GPU: {} for training".format(args.gpu))
+        if args.use_gpu:
+            print("Use GPU: {} for training".format(args.gpu))
+        else:
+            print("Use CPU: {} for training".format(args.gpu))
 
     if args.distributed:
         if args.dist_url == "env://" and args.rank == -1:
             args.rank = int(os.environ["RANK"])
         if args.multiprocessing_distributed:
             args.rank = args.rank * ngpus_per_node + gpu
+
         dist.init_process_group(backend=args.dist_backend, init_method=args.dist_url,
                                 world_size=args.world_size, rank=args.rank)
+
+        # os.environ['MASTER_ADDR'] = 'localhost'
+        # os.environ['MASTER_PORT'] = '12355'
+        # dist.init_process_group(backend=args.dist_backend,
+        #                         world_size=args.world_size, rank=args.rank)
     
     # ----------------------------------------------------------------------------------------
     # Create model(s) and send to device(s)
     # ----------------------------------------------------------------------------------------
     net = model.ResUNet(3, args.batch_norm).float()
+    args.device = torch.device('cuda:{}'.format(args.gpu)) if args.use_gpu else torch.device('cpu')
 
     if args.distributed:
         if args.gpu is not None:
-            torch.cuda.set_device(args.gpu)
             args.batch_size = int(args.batch_size / ngpus_per_node)
             args.workers = int((args.workers + ngpus_per_node - 1) / ngpus_per_node)
-
-            net.cuda(args.gpu)
-            net = torch.nn.parallel.DistributedDataParallel(net, device_ids=[args.gpu])
+            
+            if args.use_gpu:
+                torch.cuda.set_device(args.gpu)
+                net.cuda(args.gpu)
+                net = torch.nn.parallel.DistributedDataParallel(net, device_ids=[args.gpu])
+            else:
+                net.to(args.device)
+                net = torch.nn.parallel.DistributedDataParallel(net)
         else:
-            net.cuda(args.gpu)
+            net.to(args.device)
             net = torch.nn.parallel.DistributedDataParallel(net)
     elif args.gpu is not None:
-        torch.cuda.set_device(args.gpu)
-        net.cuda(args.gpu)
+        if args.use_gpu:
+            torch.cuda.set_device(args.gpu)
+        net.to(args.device)
     else:
-        net.cuda(args.gpu)
+        net.to(args.device)
         net = torch.nn.parallel.DistributedDataParallel(net)
 
     # ----------------------------------------------------------------------------------------
     # Define dataset path and data splits
-    # ----------------------------------------------------------------------------------------    
-    Input_Data = scipy.io.loadmat("\Path\To\Inputs.mat")
-    Output_Data = scipy.io.loadmat("\Path\To\Outputs.mat")
+    # ----------------------------------------------------------------------------------------  
+    assert os.path.exists(args.features), 'Could not find path to training data features!'
+    assert os.path.exists(args.labels), 'Could not find path to training data labels!'  
+    Input_Data = scipy.io.loadmat(args.features)
+    Output_Data = scipy.io.loadmat(args.labels)
 
-    Input = Input_Data['Inputs']
-    Output = Output_Data['Outputs']
+    Input = Input_Data[os.path.basename(os.path.splitext(args.features)[0])]
+    Output = Output_Data[os.path.basename(os.path.splitext(args.labels)[0])]
 
     spectra_num = len(Input)
 
-    train_split = round(0.9 * spectra_num)
-    val_split = round(0.1 * spectra_num)
+    train_split = round(args.train_val_split / 100 * spectra_num)
+    val_split = round((100 - args.train_val_split) / 100 * spectra_num)
 
     input_train = Input[:train_split]
     input_val = Input[train_split:train_split+val_split]
@@ -169,8 +197,9 @@ def main_worker(gpu, ngpus_per_node, args):
     # ----------------------------------------------------------------------------------------
     # Define criterion(s), optimizer(s), and scheduler(s)
     # ----------------------------------------------------------------------------------------
-    criterion = nn.L1Loss().cuda(args.gpu)
-    criterion_MSE = nn.MSELoss().cuda(args.gpu)
+    criterion = nn.L1Loss().to(args.device)
+    criterion_MSE = nn.MSELoss().to(args.device)
+    
     if args.optimizer == "sgd":
         optimizer = optim.SGD(net.parameters(), lr = args.lr)
     elif args.optimizer == "adamW":
@@ -202,8 +231,12 @@ def main_worker(gpu, ngpus_per_node, args):
 
     DATE = datetime.datetime.now().strftime("%Y_%m_%d")
 
-    log_dir = "runs/{}_{}_{}_{}".format(DATE, args.optimizer, args.scheduler, args.network)
-    models_dir = "{}_{}_{}_{}.pt".format(DATE, args.optimizer, args.scheduler, args.network)
+    if not os.path.exists('./models'):
+        os.mkdir('models')
+    if not os.path.exists('./runs'):
+        os.mkdir('runs')
+    log_dir = "runs/{}_{}_{}_{}_{}".format(DATE, args.optimizer, args.scheduler, args.network, args.id)
+    models_dir = "models/{}_{}_{}_{}_{}.pt".format(DATE, args.optimizer, args.scheduler, args.network, args.id)
 
     writer = SummaryWriter(log_dir = log_dir)
 
@@ -215,8 +248,11 @@ def main_worker(gpu, ngpus_per_node, args):
         
         writer.add_scalar('Loss/train', train_loss, epoch)
         writer.add_scalar('Loss/val', val_loss, epoch)
-               
-    torch.save(net.state_dict(), models_dir)
+
+    if args.multiprocessing_distributed:
+        torch.save(net.module.state_dict(), models_dir)
+    else:
+        torch.save(net.state_dict(), models_dir)
     print('Finished Training')
 
 def train(dataloader, net, optimizer, scheduler, criterion, criterion_MSE, epoch, args):
@@ -229,10 +265,10 @@ def train(dataloader, net, optimizer, scheduler, criterion, criterion_MSE, epoch
     for i, data in enumerate(dataloader):
         inputs = data['input_spectrum']
         inputs = inputs.float()
-        inputs = inputs.cuda(args.gpu)
+        inputs = inputs.to(args.device)
         target = data['output_spectrum']
         target = target.float()
-        target = target.cuda(args.gpu)
+        target = target.to(args.device)
 
         output = net(inputs)
 
@@ -265,10 +301,10 @@ def validate(dataloader, net, criterion_MSE, args):
         for i, data in enumerate(dataloader):
             inputs = data['input_spectrum']
             inputs = inputs.float()
-            inputs = inputs.cuda(args.gpu)
+            inputs = inputs.to(args.device)
             target = data['output_spectrum']
             target = target.float()
-            target = target.cuda(args.gpu)
+            target = target.to(args.device)
 
             output = net(inputs)
 
