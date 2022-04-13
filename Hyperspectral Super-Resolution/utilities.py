@@ -71,14 +71,14 @@ def calc_ssim(output, target):
             target_i = np.squeeze(target[i,:,:,:])
             target_i = np.moveaxis(target_i, 0, -1)
             batch_size = output.shape[0]
-            ssim += sk_ssim(output_i, target_i, data_range = output_i.max() - target_i.max(), multichannel=True)
+            ssim += sk_ssim(output_i, target_i, data_range = output_i.max() - target_i.max(), channel_axis = -1)
     else:
         output_i = np.squeeze(output)
         output_i = np.moveaxis(output_i, 0, -1)
         target_i = np.squeeze(target)
         target_i = np.moveaxis(target_i, 0, -1)
         batch_size = 1
-        ssim += sk_ssim(output_i, target_i, data_range = output_i.max() - target_i.max(), multichannel=True)
+        ssim += sk_ssim(output_i, target_i, data_range = output_i.max() - target_i.max(), channel_axis = -1)
         
     ssim = ssim / batch_size
     return ssim
