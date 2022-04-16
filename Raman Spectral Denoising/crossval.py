@@ -26,8 +26,8 @@ ARGS = {
     'world_size': 1,
     'rank': 0,
     'dist_url': 'tcp://localhost:12355',
-    'dist_backend': 'gloo',
-    'multiprocessing_distributed': False
+    'dist_backend': 'nccl',
+    'multiprocessing_distributed': True
 }
 
 
@@ -99,10 +99,10 @@ def crossval_train(folds = FOLDS, base_path = DATA_BASE_PATH, args = ARGS):
     test_inputs = scipy.io.loadmat(os.path.join(base_path, 'Test_Inputs.mat'))['Test_Inputs']
     test_outputs = scipy.io.loadmat(os.path.join(base_path, 'Test_Outputs.mat'))['Test_Outputs']
 
-    # all_inputs = np.concatenate([train_inputs, test_inputs], axis = 0)
-    # all_outputs = np.concatenate([train_outputs, test_outputs], axis = 0)
-    all_inputs = test_inputs.copy()
-    all_outputs = test_outputs.copy()
+    all_inputs = np.concatenate([train_inputs, test_inputs], axis = 0)
+    all_outputs = np.concatenate([train_outputs, test_outputs], axis = 0)
+    # all_inputs = test_inputs.copy()
+    # all_outputs = test_outputs.copy()
     n = len(all_inputs)
     fold_size = n // folds
 

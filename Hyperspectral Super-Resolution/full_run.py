@@ -16,7 +16,7 @@ ARGS = {
     'workers': 0,
     'epochs': 1,
     'start_epoch': 0,
-    'batch_size': 12,
+    'batch_size': 2,
     'network': 'Hyperspectral_RCAN',
     'lam': 100,
     'optimizer': 'adam',
@@ -27,11 +27,11 @@ ARGS = {
     'hr_image_size': 64,
     'spectrum_len': 500,
     'seed': 42,
-    'gpu': -1,
+    'gpu': 0,
     'world_size': 1,
     'rank': 0,
     'dist_url': 'tcp://localhost:12355',
-    'dist_backend': 'gloo',
+    'dist_backend': 'nccl',
     'multiprocessing_distributed': True
 }
 

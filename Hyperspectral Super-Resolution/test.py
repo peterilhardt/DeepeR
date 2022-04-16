@@ -132,6 +132,7 @@ def main_worker(gpu, ngpus_per_node, args):
     # else: #scale == 4
     #     net.load_state_dict(torch.load('RCAN_4x.pt'))
 
+    print('Model to be used:', args.model)
     assert os.path.exists(args.model), 'Could not find model path!'
     net.load_state_dict(torch.load(args.model))
 
@@ -194,7 +195,6 @@ def evaluate(dataloader, net, scale, args):
     
     net.eval()
 
-    seq = (1,1,scale,scale) if args.batch_size > 1 else (1,scale,scale)
     with torch.no_grad():
         for i, data in enumerate(dataloader):
             # measure data loading time
@@ -210,6 +210,8 @@ def evaluate(dataloader, net, scale, args):
 
             x2 = np.squeeze(x.numpy())
             y2 = np.squeeze(y.numpy())
+
+            seq = (1,1,scale,scale) if x2.ndim > 3 else (1,scale,scale)
 
             nearest_neighbours = scipy.ndimage.zoom(x2, seq, order=0)
             bicubic = scipy.ndimage.zoom(x2, seq, order=3)

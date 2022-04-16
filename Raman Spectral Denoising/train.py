@@ -63,7 +63,7 @@ parser.add_argument('--scheduler', default='constant-lr', type=str,
 parser.add_argument('--batch-norm', action='store_true',
                     help='apply batch norm')
 parser.add_argument('--spectrum-len', default=500, type=int,
-                    help='spectrum length (default: 350)')
+                    help='spectrum length (default: 500)')
 parser.add_argument('--seed', default=None, type=int,
                     help='seed for initializing training. ')
 parser.add_argument('--gpu', default=0, type=int,

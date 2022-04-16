@@ -47,7 +47,7 @@ parser.add_argument('-b', '--batch-size', default=256, type=int,
 parser.add_argument('--batch-norm', action='store_true',
                     help='apply batch norm')
 parser.add_argument('--spectrum-len', default=500, type=int,
-                    help='spectrum length (default: 350)')
+                    help='spectrum length (default: 500)')
 parser.add_argument('--seed', default=None, type=int,
                     help='seed for initializing training. ')
 parser.add_argument('--gpu', default=0, type=int,
@@ -211,9 +211,9 @@ def evaluate(dataloader, net, args):
         all_y = np.concatenate(all_y, axis = 0)
 
         # get optimal PC and wavelet params for denoising along with best MSE
-        MSE_PCA, num_PCs = PCA_denoise.get_optimal_pca(all_x, all_y, max_components = 25)
+        MSE_PCA, num_PCs = PCA_denoise.get_optimal_pca(all_x, all_y, max_components = 10)
         print('Optimal number of PCs: {}'.format(num_PCs))
-        MSE_wavelet, wave_type, wave_level = wavelet_denoise.get_optimal_wavelet(all_x, all_y, max_level = 3)
+        MSE_wavelet, wave_type, wave_level = wavelet_denoise.get_optimal_wavelet(all_x, all_y, max_level = 2)
         print('Optimal wavelet type and level: {}, {}'.format(wave_type, wave_level))
 
         MSE_SG = np.mean(np.asarray(MSE_SG))
