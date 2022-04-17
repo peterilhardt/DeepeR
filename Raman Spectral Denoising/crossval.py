@@ -57,7 +57,8 @@ def cleanup_folds(base_path = DATA_BASE_PATH, only_train = True):
     else:
         files = glob.glob(os.path.join(base_path, 'fold*.mat'))
     for file in files:
-        os.remove(file)
+        if os.path.exists(file):
+            os.remove(file)
 
 def make_cmd(feature_path, label_path, args, fold, train = True):
     new_args = args.copy()

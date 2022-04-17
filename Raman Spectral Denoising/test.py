@@ -217,23 +217,25 @@ def evaluate(dataloader, net, args):
             
             losses.update(loss.item(), inputs.size(0))
 
-        all_x = np.concatenate(all_x, axis = 0)
-        all_y = np.concatenate(all_y, axis = 0)
+        if args.rank == 0:
+            all_x = np.concatenate(all_x, axis = 0)
+            all_y = np.concatenate(all_y, axis = 0)
 
-        # get optimal PC and wavelet params for denoising along with best MSE
-        MSE_PCA, num_PCs = PCA_denoise.get_optimal_pca(all_x, all_y, max_components = 10)
-        print('Optimal number of PCs: {}'.format(num_PCs))
-        MSE_wavelet, wave_type, wave_level = wavelet_denoise.get_optimal_wavelet(all_x, all_y, max_level = 2)
-        print('Optimal wavelet type and level: {}, {}'.format(wave_type, wave_level))
+            # get optimal PC and wavelet params for denoising along with best MSE
+            MSE_PCA, num_PCs = PCA_denoise.get_optimal_pca(all_x, all_y, max_components = 10)
+            print('Optimal number of PCs: {}'.format(num_PCs))
+            MSE_wavelet, wave_type, wave_level = wavelet_denoise.get_optimal_wavelet(all_x, all_y, max_level = 2)
+            print('Optimal wavelet type and level: {}, {}'.format(wave_type, wave_level))
 
-        MSE_SG = np.mean(np.asarray(MSE_SG))
-        print("Neural Network MSE: {}".format(losses.avg))
-        print("Savitzky-Golay MSE: {}".format(MSE_SG))
-        print("PCA MSE: {}".format(MSE_PCA))
-        print("Wavelet MSE: {}".format(MSE_wavelet))
-        print("Neural Network performed {0:.2f}x better than Savitzky-Golay".format(MSE_SG/losses.avg))
+            MSE_SG = np.mean(np.asarray(MSE_SG))
+            print("Neural Network MSE: {}".format(losses.avg))
+            print("Savitzky-Golay MSE: {}".format(MSE_SG))
+            print("PCA MSE: {}".format(MSE_PCA))
+            print("Wavelet MSE: {}".format(MSE_wavelet))
+            print("Neural Network performed {0:.2f}x better than Savitzky-Golay".format(MSE_SG/losses.avg))
 
     return losses.avg, MSE_SG, MSE_PCA, MSE_wavelet
+
 
 if __name__ == '__main__':
     main()

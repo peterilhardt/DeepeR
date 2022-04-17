@@ -261,11 +261,14 @@ def evaluate(dataloader, net, scale, args):
             
             mse_batch = nn.MSELoss()(output, target)
             mse_NN.update(mse_batch, inputs.size(0))
-            
-    print("RCAN PSNR: {}    Bicubic PSNR: {}    Nearest Neighbours PSNR: {}".format(psnr.avg, psnr_bicubic.avg, psnr_nearest_neighbours.avg))
-    print("RCAN SSIM: {}    Bicubic SSIM: {}    Nearest Neighbours SSIM: {}".format(ssim.avg, ssim_bicubic.avg, ssim_nearest_neighbours.avg))
-    print("RCAN MSE:  {}    Bicubic MSE:  {}    Nearest Neighbours MSE:  {}".format(mse_NN.avg, mse_bicubic.avg, mse_nearest_neighbours.avg))
+
+    if args.rank == 0:        
+        print("RCAN PSNR: {}    Bicubic PSNR: {}    Nearest Neighbours PSNR: {}".format(psnr.avg, psnr_bicubic.avg, psnr_nearest_neighbours.avg))
+        print("RCAN SSIM: {}    Bicubic SSIM: {}    Nearest Neighbours SSIM: {}".format(ssim.avg, ssim_bicubic.avg, ssim_nearest_neighbours.avg))
+        print("RCAN MSE:  {}    Bicubic MSE:  {}    Nearest Neighbours MSE:  {}".format(mse_NN.avg, mse_bicubic.avg, mse_nearest_neighbours.avg))
+
     return psnr.avg, psnr_bicubic.avg, psnr_nearest_neighbours.avg, ssim.avg, ssim_bicubic.avg, ssim_nearest_neighbours.avg, mse_NN.avg, mse_bicubic.avg, mse_nearest_neighbours.avg
+
 
 if __name__ == '__main__':
     main()

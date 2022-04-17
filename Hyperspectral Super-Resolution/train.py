@@ -247,15 +247,16 @@ def main_worker(gpu, ngpus_per_node, args):
     else: # constant-lr
         scheduler = None
     
-    print('Started Training')
-    print('Training Details:')
-    print('Network:         {}'.format(args.network))
-    print('Epochs:          {}'.format(args.epochs))
-    print('Batch Size:      {}'.format(args.batch_size))
-    print('Optimizer:       {}'.format(args.optimizer))
-    print('Scheduler:       {}'.format(args.scheduler))
-    print('Learning Rate:   {}'.format(args.lr))
-    print('Spectrum Length: {}'.format(args.spectrum_len))
+    if args.rank == 0:
+        print('Started Training')
+        print('Training Details:')
+        print('Network:         {}'.format(args.network))
+        print('Epochs:          {}'.format(args.epochs))
+        print('Batch Size:      {}'.format(args.batch_size))
+        print('Optimizer:       {}'.format(args.optimizer))
+        print('Scheduler:       {}'.format(args.scheduler))
+        print('Learning Rate:   {}'.format(args.lr))
+        print('Spectrum Length: {}'.format(args.spectrum_len))
 
     date = datetime.datetime.now().strftime("%Y_%m_%d")
 
@@ -330,6 +331,7 @@ def train(dataloader, net, optimizer, scheduler, criterion, criterion_MSE, epoch
         end = time.time()
 
         if i % 20 == 0:
+            print('Process:', args.rank)
             progress.display(i)
     return losses.avg, psnr.avg, ssim.avg
 
@@ -367,6 +369,7 @@ def validate(dataloader, net, criterion_MSE, args):
             end = time.time()
 
             if i % 20 == 0:
+                print('Process:', args.rank)
                 progress.display(i)
 
     return losses.avg, psnr.avg, ssim.avg
