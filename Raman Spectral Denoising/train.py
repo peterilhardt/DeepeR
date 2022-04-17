@@ -252,16 +252,17 @@ def main_worker(gpu, ngpus_per_node, args):
         print('Learning Rate:   {}'.format(args.lr))
         print('Spectrum Length: {}'.format(args.spectrum_len))
 
-    DATE = datetime.datetime.now().strftime("%Y_%m_%d")
+        # the steps below tend to fail with distributed processes, so restrict them to one process
+        DATE = datetime.datetime.now().strftime("%Y_%m_%d")
 
-    if not os.path.exists('./models'):
-        os.mkdir('models')
-    if not os.path.exists('./runs'):
-        os.mkdir('runs')
-    log_dir = "runs/{}_{}_{}_{}_{}".format(DATE, args.optimizer, args.scheduler, args.network, args.id)
-    models_dir = "models/{}_{}_{}_{}_{}.pt".format(DATE, args.optimizer, args.scheduler, args.network, args.id)
+        if not os.path.exists('./models'):
+            os.mkdir('models')
+        if not os.path.exists('./runs'):
+            os.mkdir('runs')
+        log_dir = "runs/{}_{}_{}_{}_{}".format(DATE, args.optimizer, args.scheduler, args.network, args.id)
+        models_dir = "models/{}_{}_{}_{}_{}.pt".format(DATE, args.optimizer, args.scheduler, args.network, args.id)
 
-    writer = SummaryWriter(log_dir = log_dir)
+        writer = SummaryWriter(log_dir = log_dir)
 
     for epoch in range(args.epochs):
         train_loss = train(train_loader, net, optimizer, scheduler, criterion, criterion_MSE, epoch, args)
@@ -269,8 +270,9 @@ def main_worker(gpu, ngpus_per_node, args):
         if args.scheduler == "decay-lr" or args.scheduler == "multiplicative-lr":
             scheduler.step()
         
-        writer.add_scalar('Loss/train', train_loss, epoch)
-        writer.add_scalar('Loss/val', val_loss, epoch)
+        if args.rank == 0:
+            writer.add_scalar('Loss/train', train_loss, epoch)
+            writer.add_scalar('Loss/val', val_loss, epoch)
 
         # only want to save one copy of the model (weights are the same on each process)
         # don't want each process trying to save weights over each other
@@ -312,9 +314,9 @@ def train(dataloader, net, optimizer, scheduler, criterion, criterion_MSE, epoch
         batch_time.update(time.time() - end)
         end = time.time()
 
-        if i % 400 == 0:
-            print('Process:', args.rank)
+        if i % 400 == 0 and args.rank == 0:
             progress.display(i)
+            
     return losses.avg
 
 
@@ -341,8 +343,7 @@ def validate(dataloader, net, criterion_MSE, args):
             batch_time.update(time.time() - end)
             end = time.time()
 
-            if i % 400 == 0:
-                print('Process:', args.rank)
+            if i % 400 == 0 and args.rank == 0:
                 progress.display(i)
 
     return losses.avg

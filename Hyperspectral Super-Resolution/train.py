@@ -258,16 +258,17 @@ def main_worker(gpu, ngpus_per_node, args):
         print('Learning Rate:   {}'.format(args.lr))
         print('Spectrum Length: {}'.format(args.spectrum_len))
 
-    date = datetime.datetime.now().strftime("%Y_%m_%d")
+        # the steps below tend to fail with distributed processes, so restrict them to one process
+        date = datetime.datetime.now().strftime("%Y_%m_%d")
 
-    if not os.path.exists('./models'):
-        os.mkdir('models')
-    if not os.path.exists('./runs'):
-        os.mkdir('runs')
-    log_dir = "runs/{}_{}_{}_{}_{}x_{}".format(date, args.optimizer, args.scheduler, args.network, scale, args.id)
-    models_dir = "models/{}_{}_{}_{}_{}x_{}.pt".format(date, args.optimizer, args.scheduler, args.network, scale, args.id)
+        if not os.path.exists('./models'):
+            os.mkdir('models')
+        if not os.path.exists('./runs'):
+            os.mkdir('runs')
+        log_dir = "runs/{}_{}_{}_{}_{}x_{}".format(date, args.optimizer, args.scheduler, args.network, scale, args.id)
+        models_dir = "models/{}_{}_{}_{}_{}x_{}.pt".format(date, args.optimizer, args.scheduler, args.network, scale, args.id)
 
-    writer = SummaryWriter(log_dir = log_dir)
+        writer = SummaryWriter(log_dir = log_dir)
 
     for epoch in range(args.epochs):
         train_loss, train_psnr, train_ssim = train(train_loader, net, optimizer, scheduler, criterion, criterion_MSE, epoch, args)
@@ -275,12 +276,13 @@ def main_worker(gpu, ngpus_per_node, args):
         if args.scheduler != "cyclic-lr" and args.scheduler != "one-cycle-lr" and args.scheduler != "constant-lr":
             scheduler.step()
 
-        writer.add_scalar('Loss/train', train_loss, epoch)
-        writer.add_scalar('Loss/val', valid_loss, epoch)
-        writer.add_scalar('PSNR/train', train_psnr, epoch)
-        writer.add_scalar('PSNR/val', valid_psnr, epoch)
-        writer.add_scalar('SSIM/train', train_ssim, epoch)
-        writer.add_scalar('SSIM/val', valid_ssim, epoch)
+        if args.rank == 0:
+            writer.add_scalar('Loss/train', train_loss, epoch)
+            writer.add_scalar('Loss/val', valid_loss, epoch)
+            writer.add_scalar('PSNR/train', train_psnr, epoch)
+            writer.add_scalar('PSNR/val', valid_psnr, epoch)
+            writer.add_scalar('SSIM/train', train_ssim, epoch)
+            writer.add_scalar('SSIM/val', valid_ssim, epoch)
                         
         # only want to save one copy of the model (weights are the same on each process)
         # don't want each process trying to save weights over each other
@@ -330,9 +332,9 @@ def train(dataloader, net, optimizer, scheduler, criterion, criterion_MSE, epoch
         batch_time.update(time.time() - end)
         end = time.time()
 
-        if i % 20 == 0:
-            print('Process:', args.rank)
+        if i % 20 == 0 and args.rank == 0:
             progress.display(i)
+
     return losses.avg, psnr.avg, ssim.avg
 
 
@@ -368,8 +370,7 @@ def validate(dataloader, net, criterion_MSE, args):
             batch_time.update(time.time() - end)
             end = time.time()
 
-            if i % 20 == 0:
-                print('Process:', args.rank)
+            if i % 20 == 0 and args.rank == 0:
                 progress.display(i)
 
     return losses.avg, psnr.avg, ssim.avg

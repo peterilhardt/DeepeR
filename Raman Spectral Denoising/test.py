@@ -188,6 +188,7 @@ def evaluate(dataloader, net, args):
     
     all_x = []
     all_y = []
+    
     MSE_SG = []
     MSE_PCA = []
     MSE_wavelet = []

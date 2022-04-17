@@ -46,9 +46,24 @@ def write_id_files(data_path = DATA_BASE_PATH, train_split = TRAIN_PERCENT, val_
     split = int((train_split + val_split) / 100 * n)
     df_train_val = df.iloc[:split,:]
     df_test = df.iloc[split:,:]
+    
+    train_file = os.path.join(data_path, 'Train_Image_IDs.csv')
+    test_file = os.path.join(data_path, 'Test_Image_IDs.csv')
 
-    df_train_val.to_csv(os.path.join(data_path, 'Train_Image_IDs.csv'), index = False)
-    df_test.to_csv(os.path.join(data_path, 'Test_Image_IDs.csv'), index = False)
+    if not os.path.exists(train_file):
+        df_train_val.to_csv(train_file, index = False)
+    if not os.path.exists(test_file):
+        df_test.to_csv(test_file, index = False)
+
+def clear_id_files(data_path = DATA_BASE_PATH):
+    train_file = os.path.join(data_path, 'Train_Image_IDs.csv')
+    test_file = os.path.join(data_path, 'Test_Image_IDs.csv')
+    for file in [train_file, test_file]:
+        try:
+            if os.path.exists(file):
+                os.remove(file)
+        except:
+            continue
 
 def make_cmd(dataset_path, args, train = True):
     new_args = args.copy()
@@ -87,15 +102,18 @@ def train(data_path = DATA_BASE_PATH, train_split = TRAIN_PERCENT, val_split = V
     print('Training model')
     subprocess.run(cmd.split(' '))
 
-def eval(data_path = DATA_BASE_PATH, args = ARGS):
+def eval(data_path = DATA_BASE_PATH, args = ARGS, delete_id_files = True):
     dataset_path = os.path.join(DATA_BASE_PATH, 'Test_Image_IDs.csv')
     cmd = make_cmd(dataset_path, args, train = False)
 
     print('Evaluating model')
     subprocess.run(cmd.split(' '))
 
+    if delete_id_files:
+        clear_id_files(data_path)
+
 
 if __name__ == '__main__':
     train(DATA_BASE_PATH, TRAIN_PERCENT, VAL_PERCENT, ARGS)
-    eval(DATA_BASE_PATH, ARGS)
+    eval(DATA_BASE_PATH, ARGS, delete_id_files = False)
     

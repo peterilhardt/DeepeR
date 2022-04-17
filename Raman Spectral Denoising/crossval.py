@@ -57,8 +57,11 @@ def cleanup_folds(base_path = DATA_BASE_PATH, only_train = True):
     else:
         files = glob.glob(os.path.join(base_path, 'fold*.mat'))
     for file in files:
-        if os.path.exists(file):
-            os.remove(file)
+        try:
+            if os.path.exists(file):
+                os.remove(file)
+        except:
+            continue
 
 def make_cmd(feature_path, label_path, args, fold, train = True):
     new_args = args.copy()
@@ -120,10 +123,13 @@ def crossval_train(folds = FOLDS, base_path = DATA_BASE_PATH, args = ARGS):
         name_train_o = 'fold{}_outputs_train'.format(i)
         name_test_i = 'fold{}_inputs_test'.format(i)
         name_test_o = 'fold{}_outputs_test'.format(i)
-        scipy.io.savemat(os.path.join(base_path, name_train_i + '.mat'), {name_train_i: train_inputs})
-        scipy.io.savemat(os.path.join(base_path, name_train_o + '.mat'), {name_train_o: train_outputs})
-        scipy.io.savemat(os.path.join(base_path, name_test_i + '.mat'), {name_test_i: test_inputs})
-        scipy.io.savemat(os.path.join(base_path, name_test_o + '.mat'), {name_test_o: test_outputs})
+
+        data = [train_inputs, train_outputs, test_inputs, test_outputs]
+        names = [name_train_i, name_train_o, name_test_i, name_test_o]
+        for i, name in enumerate(names):
+            file = os.path.join(base_path, name + '.mat')
+            if not os.path.exists(file):
+                scipy.io.savemat(file, {name: data[i]})
 
         # train a model for each fold
         cmd = make_cmd(os.path.join(base_path, name_train_i + '.mat'), 
@@ -134,7 +140,7 @@ def crossval_train(folds = FOLDS, base_path = DATA_BASE_PATH, args = ARGS):
         subprocess.run(cmd.split(' '))
 
         # delete the training set to cleanup
-        #cleanup_folds(base_path, only_train = True)
+        cleanup_folds(base_path, only_train = True)
 
 def crossval_eval(folds = FOLDS, base_path = DATA_BASE_PATH, args = ARGS, delete_test_sets = False):
     for i in range(folds):
