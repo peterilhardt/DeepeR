@@ -53,11 +53,14 @@ parser.add_argument('--seed', default=None, type=int,
 parser.add_argument('--gpu', default=0, type=int,
                     help='GPU id to use (use -1 for CPU)')
 parser.add_argument('--world-size', default=1, type=int,
-                    help='number of nodes for distributed training')
+                    help='number of nodes for distributed training '
+                         '(-1 to get from environment)')
 parser.add_argument('--rank', default=0, type=int,
-                    help='node rank for distributed training')
+                    help='node rank for distributed training ' 
+                         '(-1 to get from environment)') 
 parser.add_argument('--dist-url', default='tcp://localhost:12355', type=str,
-                    help='url used to set up distributed training')
+                    help='url used to set up distributed training (IP address and port of '
+                         'principal node - can use env:// to get from environment)')
 parser.add_argument('--dist-backend', default='nccl', type=str,
                     help='distributed backend (use nccl for GPUs on Linux, gloo otherwise)')
 parser.add_argument('--multiprocessing-distributed', action='store_true',
@@ -91,20 +94,21 @@ def main():
         args.world_size = cores * args.world_size
         mp.spawn(main_worker, nprocs=cores, args=(cores, args))
     else:
+        args.gpu = 0
         main_worker(args.gpu, cores, args)
 
 def main_worker(gpu, ngpus_per_node, args):
     args.gpu = gpu
 
-    if args.gpu is not None:
-        if args.use_gpu:
-            print("Use GPU: {} for training".format(args.gpu))
-        else:
-            print("Use CPU: {} for training".format(args.gpu))
+    if args.use_gpu:
+        print("Use GPU: {} for training".format(args.gpu))
+    else:
+        print("Use CPU: {} for training".format(args.gpu))
 
     if args.distributed:
         if args.dist_url == "env://" and args.rank == -1:
-            args.rank = int(os.environ["RANK"])
+            #args.rank = int(os.environ["RANK"])
+            args.rank = int(os.environ['SLURM_NODEID'])
         if args.multiprocessing_distributed:
             args.rank = args.rank * ngpus_per_node + gpu
 
@@ -125,27 +129,25 @@ def main_worker(gpu, ngpus_per_node, args):
     args.device = torch.device('cuda:{}'.format(args.gpu)) if args.use_gpu else torch.device('cpu')
 
     if args.distributed:
-        if args.gpu is not None:
-            args.batch_size = int(args.batch_size / ngpus_per_node)
-            args.workers = int((args.workers + ngpus_per_node - 1) / ngpus_per_node)
-            
-            if args.use_gpu:
-                torch.cuda.set_device(args.gpu)
-                net.cuda(args.gpu)
-                net = torch.nn.parallel.DistributedDataParallel(net, device_ids=[args.gpu])
-            else:
-                net.to(args.device)
-                net = torch.nn.parallel.DistributedDataParallel(net)
+        args.batch_size = int(args.batch_size / ngpus_per_node)
+        #args.batch_size = int(args.batch_size / args.world_size)
+        args.workers = int((args.workers + ngpus_per_node - 1) / ngpus_per_node)
+        
+        if args.use_gpu:
+            torch.cuda.set_device(args.gpu)
+            net.cuda(args.gpu)
+            net = torch.nn.parallel.DistributedDataParallel(net, device_ids=[args.gpu])
         else:
             net.to(args.device)
             net = torch.nn.parallel.DistributedDataParallel(net)
-    elif args.gpu is not None:
+    else:
+        args.rank = 0 
         if args.use_gpu:
             torch.cuda.set_device(args.gpu)
         net.to(args.device)
-    else:
-        net.to(args.device)
-        net = torch.nn.parallel.DistributedDataParallel(net)
+    # else:
+    #     net.to(args.device)
+    #     net = torch.nn.parallel.DistributedDataParallel(net)
 
     # ----------------------------------------------------------------------------------------
     # Define dataset path and data splits
@@ -163,7 +165,15 @@ def main_worker(gpu, ngpus_per_node, args):
     # ----------------------------------------------------------------------------------------
     Raman_Dataset_Test = dataset.RamanDataset(Input, Output, batch_size = args.batch_size, spectrum_len = args.spectrum_len)
 
-    test_loader = DataLoader(Raman_Dataset_Test, batch_size = args.batch_size, shuffle = False, num_workers = 0, pin_memory = True)
+    if args.distributed:
+        # ensures that each process gets different data from the batch
+        test_sampler = torch.utils.data.distributed.DistributedSampler(
+            Raman_Dataset_Test, num_replicas = args.world_size, rank = args.rank)
+    else:
+        test_sampler = None
+
+    test_loader = DataLoader(Raman_Dataset_Test, batch_size = args.batch_size, shuffle = False, 
+        num_workers = 0, pin_memory = True, sampler = test_sampler)
 
     # ----------------------------------------------------------------------------------------
     # Evaluate
