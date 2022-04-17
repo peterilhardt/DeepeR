@@ -134,7 +134,7 @@ def crossval_train(folds = FOLDS, base_path = DATA_BASE_PATH, args = ARGS):
         subprocess.run(cmd.split(' '))
 
         # delete the training set to cleanup
-        cleanup_folds(base_path, only_train = True)
+        #cleanup_folds(base_path, only_train = True)
 
 def crossval_eval(folds = FOLDS, base_path = DATA_BASE_PATH, args = ARGS, delete_test_sets = False):
     for i in range(folds):
@@ -157,4 +157,4 @@ def crossval_eval(folds = FOLDS, base_path = DATA_BASE_PATH, args = ARGS, delete
 if __name__ == '__main__':
     crossval_train(FOLDS, DATA_BASE_PATH, ARGS)
     #ARGS['multiprocessing_distributed'] = False
-    crossval_eval(FOLDS, DATA_BASE_PATH, ARGS, delete_test_sets = True)
+    crossval_eval(FOLDS, DATA_BASE_PATH, ARGS, delete_test_sets = False)
