@@ -110,7 +110,6 @@ def main():
         args.world_size = cores * args.world_size
         mp.spawn(main_worker, nprocs=cores, args=(cores, args))
     else:
-        args.gpu = 0
         main_worker(args.gpu, cores, args)
 
 def main_worker(gpu, ngpus_per_node, args):
@@ -123,10 +122,11 @@ def main_worker(gpu, ngpus_per_node, args):
 
     if args.distributed:
         if args.dist_url == "env://" and args.rank == -1:
-            #args.rank = int(os.environ["RANK"])
-            args.rank = int(os.environ['SLURM_NODEID'])
+            args.rank = int(os.environ["RANK"])
+            #args.rank = int(os.environ['SLURM_NODEID'])
         if args.multiprocessing_distributed:
             args.rank = args.rank * ngpus_per_node + gpu
+        print('Process:', args.rank)
 
         dist.init_process_group(backend=args.dist_backend, init_method=args.dist_url,
                                 world_size=args.world_size, rank=args.rank)
