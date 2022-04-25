@@ -5,6 +5,7 @@ import subprocess
 import numpy as np
 import scipy.io
 import datetime
+import time
 
 DATA_BASE_PATH = r'../../data/hyperspectral_super_resolution_data'
 TRAIN_PERCENT = 85
@@ -65,11 +66,10 @@ def clear_id_files(data_path = DATA_BASE_PATH):
         except:
             continue
 
-def make_cmd(dataset_path, args, train = True):
+def make_cmd(dataset_path, args, train = True, date = datetime.datetime.now().strftime("%Y_%m_%d")):
     new_args = args.copy()
 
     scale = new_args['hr_image_size'] // new_args['lr_image_size']
-    DATE = datetime.datetime.now().strftime("%Y_%m_%d")
     multiproc = new_args['multiprocessing_distributed']
     new_args['dataset'] = dataset_path
 
@@ -78,7 +78,7 @@ def make_cmd(dataset_path, args, train = True):
                     'lam', 'multiprocessing_distributed']
         for key in rm_list:
             new_args.pop(key)
-        model = "models/{}_{}_{}_{}_{}x_{}.pt".format(DATE, new_args['optimizer'], new_args['scheduler'], 
+        model = "models/{}_{}_{}_{}_{}x_{}.pt".format(date, new_args['optimizer'], new_args['scheduler'], 
                                                       new_args['network'], scale, new_args['id'])
         new_args['model'] = model
         for key in ['optimizer', 'scheduler', 'id']:
@@ -102,9 +102,17 @@ def train(data_path = DATA_BASE_PATH, train_split = TRAIN_PERCENT, val_split = V
     print('Training model')
     subprocess.run(cmd.split(' '))
 
-def eval(data_path = DATA_BASE_PATH, args = ARGS, delete_id_files = True):
+def eval(data_path = DATA_BASE_PATH, args = ARGS, delete_id_files = True, date = None):
+    if date is not None:
+        try:
+            date = datetime.datetime.fromisoformat(date).strftime("%Y_%m_%d")
+        except:
+            raise ValueError('date should be in ISO format (yyyy-mm-dd)')
+    else:
+        date = datetime.datetime.now().strftime("%Y_%m_%d")
+
     dataset_path = os.path.join(DATA_BASE_PATH, 'Test_Image_IDs.csv')
-    cmd = make_cmd(dataset_path, args, train = False)
+    cmd = make_cmd(dataset_path, args, train = False, date = date)
 
     print('Evaluating model')
     subprocess.run(cmd.split(' '))
@@ -114,6 +122,9 @@ def eval(data_path = DATA_BASE_PATH, args = ARGS, delete_id_files = True):
 
 
 if __name__ == '__main__':
+    start_time = time.time()
     train(DATA_BASE_PATH, TRAIN_PERCENT, VAL_PERCENT, ARGS)
-    eval(DATA_BASE_PATH, ARGS, delete_id_files = False)
+    #eval(DATA_BASE_PATH, ARGS, delete_id_files = False, date = '2022-04-18')
+    end_time = time.time()
+    print('Total run time: {} minutes'.format(np.round((end_time - start_time) / 60, 2)))
     

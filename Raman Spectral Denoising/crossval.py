@@ -4,6 +4,7 @@ import subprocess
 import numpy as np
 import scipy.io
 import datetime
+import time
 
 DATA_BASE_PATH = r'../../data/spectral_denoising_data'
 FOLDS = 11
@@ -63,10 +64,10 @@ def cleanup_folds(base_path = DATA_BASE_PATH, only_train = True):
         except:
             continue
 
-def make_cmd(feature_path, label_path, args, fold, train = True):
+def make_cmd(feature_path, label_path, args, fold, train = True, 
+             date = datetime.datetime.now().strftime("%Y_%m_%d")):
     new_args = args.copy()
 
-    DATE = datetime.datetime.now().strftime("%Y_%m_%d")
     multiproc = new_args['multiprocessing_distributed']
     batch_norm = new_args['batch_norm']
     new_args['features'] = feature_path
@@ -77,7 +78,7 @@ def make_cmd(feature_path, label_path, args, fold, train = True):
                     'batch_norm', 'multiprocessing_distributed']
         for key in rm_list:
             new_args.pop(key)
-        model = "models/{}_{}_{}_{}_{}.pt".format(DATE, new_args['optimizer'], new_args['scheduler'], 
+        model = "models/{}_{}_{}_{}_{}.pt".format(date, new_args['optimizer'], new_args['scheduler'], 
                                                   new_args['network'], 'fold{}'.format(fold))
         new_args['model'] = model
         for key in ['optimizer', 'scheduler', 'network']:
@@ -126,10 +127,10 @@ def crossval_train(folds = FOLDS, base_path = DATA_BASE_PATH, args = ARGS):
 
         data = [train_inputs, train_outputs, test_inputs, test_outputs]
         names = [name_train_i, name_train_o, name_test_i, name_test_o]
-        for i, name in enumerate(names):
+        for j, name in enumerate(names):
             file = os.path.join(base_path, name + '.mat')
             if not os.path.exists(file):
-                scipy.io.savemat(file, {name: data[i]})
+                scipy.io.savemat(file, {name: data[j]})
 
         # train a model for each fold
         cmd = make_cmd(os.path.join(base_path, name_train_i + '.mat'), 
@@ -142,7 +143,15 @@ def crossval_train(folds = FOLDS, base_path = DATA_BASE_PATH, args = ARGS):
         # delete the training set to cleanup
         cleanup_folds(base_path, only_train = True)
 
-def crossval_eval(folds = FOLDS, base_path = DATA_BASE_PATH, args = ARGS, delete_test_sets = False):
+def crossval_eval(folds = FOLDS, base_path = DATA_BASE_PATH, args = ARGS, delete_test_sets = False, date = None):
+    if date is not None:
+        try:
+            date = datetime.datetime.fromisoformat(date).strftime("%Y_%m_%d")
+        except:
+            raise ValueError('date should be in ISO format (yyyy-mm-dd)')
+    else:
+        date = datetime.datetime.now().strftime("%Y_%m_%d")
+
     for i in range(folds):
         # evaluate each model on its held-out test data
         name_test_i = 'fold{}_inputs_test'.format(i)
@@ -150,7 +159,7 @@ def crossval_eval(folds = FOLDS, base_path = DATA_BASE_PATH, args = ARGS, delete
 
         cmd = make_cmd(os.path.join(base_path, name_test_i + '.mat'), 
                         os.path.join(base_path, name_test_o + '.mat'),
-                        args, i, train = False)
+                        args, i, train = False, date = date)
 
         print('Evaluating model for fold {}'.format(i))
         subprocess.run(cmd.split(' '))
@@ -161,6 +170,10 @@ def crossval_eval(folds = FOLDS, base_path = DATA_BASE_PATH, args = ARGS, delete
 
 
 if __name__ == '__main__':
-    crossval_train(FOLDS, DATA_BASE_PATH, ARGS)
+    start_time = time.time()
+    #crossval_train(FOLDS, DATA_BASE_PATH, ARGS)
     #ARGS['multiprocessing_distributed'] = False
     crossval_eval(FOLDS, DATA_BASE_PATH, ARGS, delete_test_sets = False)
+    end_time = time.time()
+    print('Total run time: {} minutes'.format(np.round((end_time - start_time) / 60, 2)))
+    

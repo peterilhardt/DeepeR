@@ -112,7 +112,6 @@ def main():
         args.world_size = cores * args.world_size
         mp.spawn(main_worker, nprocs=cores, args=(cores, args))
     else:
-        args.gpu = 0
         main_worker(args.gpu, cores, args)
 
 def main_worker(gpu, ngpus_per_node, args):
@@ -125,10 +124,11 @@ def main_worker(gpu, ngpus_per_node, args):
 
     if args.distributed:
         if args.dist_url == "env://" and args.rank == -1:
-            #args.rank = int(os.environ["RANK"])
-            args.rank = int(os.environ['SLURM_NODEID'])
+            args.rank = int(os.environ["RANK"])
+            #args.rank = int(os.environ['SLURM_NODEID'])
         if args.multiprocessing_distributed:
             args.rank = args.rank * ngpus_per_node + gpu
+        print('Process:', args.rank)
 
         dist.init_process_group(backend=args.dist_backend, init_method=args.dist_url,
                                 world_size=args.world_size, rank=args.rank)
@@ -153,7 +153,7 @@ def main_worker(gpu, ngpus_per_node, args):
     scale = args.hr_image_size // args.lr_image_size
     net = model.Hyperspectral_RCAN(args.spectrum_len, scale).float()
     args.device = torch.device('cuda:{}'.format(args.gpu)) if args.use_gpu else torch.device('cpu')
-
+    
     if args.distributed:
         args.batch_size = int(args.batch_size / ngpus_per_node)
         #args.batch_size = int(args.batch_size / args.world_size)
@@ -164,14 +164,15 @@ def main_worker(gpu, ngpus_per_node, args):
             net.cuda(args.gpu)
             net = torch.nn.parallel.DistributedDataParallel(net, device_ids=[args.gpu])
         else:
-            #net.to(args.device)
-            #net = torch.nn.parallel.DistributedDataParallel(net)
-            net = torch.nn.DataParallel(net).to(args.device) 
+            net.to(args.device)
+            net = torch.nn.parallel.DistributedDataParallel(net)
+            #net = torch.nn.DataParallel(net).to(args.device) 
     else:
         args.rank = 0  # to make sure the model gets saved later
         if args.use_gpu:
             torch.cuda.set_device(args.gpu)
         net.to(args.device)
+        #net = torch.nn.parallel.DistributedDataParallel(net)
     # else:
     #     net = nn.DataParallel(net).to(args.device)
        
