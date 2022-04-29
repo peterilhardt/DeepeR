@@ -7,7 +7,7 @@ import scipy.signal
 import math
 import torch
 from torch import nn
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset
 
 class RamanDataset(Dataset):
     def __init__(self, inputs, outputs, batch_size=64,spectrum_len=500, spectrum_shift=0., 

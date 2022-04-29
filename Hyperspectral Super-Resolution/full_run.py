@@ -124,7 +124,7 @@ def eval(data_path = DATA_BASE_PATH, args = ARGS, delete_id_files = True, date =
 if __name__ == '__main__':
     start_time = time.time()
     train(DATA_BASE_PATH, TRAIN_PERCENT, VAL_PERCENT, ARGS)
-    #eval(DATA_BASE_PATH, ARGS, delete_id_files = False, date = '2022-04-18')
+    eval(DATA_BASE_PATH, ARGS, delete_id_files = False, date = None)
     end_time = time.time()
     print('Total run time: {} minutes'.format(np.round((end_time - start_time) / 60, 2)))
     

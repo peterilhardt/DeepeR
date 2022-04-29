@@ -1,9 +1,6 @@
 import torch
 from torch import nn
 import torch.nn.functional as F
-import torch.optim as optim
-from torch.utils.data import Dataset, DataLoader
-from torchvision import transforms, utils
 
 class BasicConv(nn.Module):
     def __init__(self, channels_in, channels_out, batch_norm):

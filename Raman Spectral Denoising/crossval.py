@@ -171,9 +171,8 @@ def crossval_eval(folds = FOLDS, base_path = DATA_BASE_PATH, args = ARGS, delete
 
 if __name__ == '__main__':
     start_time = time.time()
-    #crossval_train(FOLDS, DATA_BASE_PATH, ARGS)
-    #ARGS['multiprocessing_distributed'] = False
-    crossval_eval(FOLDS, DATA_BASE_PATH, ARGS, delete_test_sets = False)
+    crossval_train(FOLDS, DATA_BASE_PATH, ARGS)
+    crossval_eval(FOLDS, DATA_BASE_PATH, ARGS, delete_test_sets = False, date = None)
     end_time = time.time()
     print('Total run time: {} minutes'.format(np.round((end_time - start_time) / 60, 2)))
     

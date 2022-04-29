@@ -2,9 +2,6 @@ import math
 import torch
 from torch import nn
 import torch.nn.functional as F
-import torch.optim as optim
-from torch.utils.data import Dataset, DataLoader
-from torchvision import transforms, utils
 
 # This code is adapted from: https://github.com/yulunzhang/RCAN
 # The corresponding paper is:

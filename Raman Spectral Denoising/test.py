@@ -32,9 +32,9 @@ import model, dataset, utilities, PCA_denoise, wavelet_denoise
 parser = argparse.ArgumentParser(description='DeNoiser Training')
 
 parser.add_argument('--features', default='', type=str, 
-                    help='path to training data features/inputs')
+                    help='path to testing data features/inputs')
 parser.add_argument('--labels', default='', type=str, 
-                    help='path to training data labels')
+                    help='path to testing data labels')
 parser.add_argument('--model', default='', type=str, 
                     help='path to model')
 parser.add_argument('-j', '--workers', default=0, type=int, metavar='N',
