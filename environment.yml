@@ -1,0 +1,15 @@
+name: DeepeR
+channels:
+  - pytorch
+  - defaults
+dependencies:
+  - python=3.9
+  - pytorch=1.11.*
+  - numpy
+  - scipy
+  - matplotlib
+  - scikit-image
+  - scikit-learn
+  - pywavelets
+  - pandas
+  - tensorboard
