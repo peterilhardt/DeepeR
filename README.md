@@ -1,84 +1,162 @@
 # High-throughput molecular imaging via deep learning enabled Raman spectroscopy
-This repository is for DeepeR, introduced in the following paper:
+This repository is the result of a reproducibility study of an original investigation: *High-throughput molecular imaging via deep learning enabled Raman spectroscopy* by Conor C. Horgan, Magnus Jensen, Anika Nagelkerke, Jean-Phillipe St-Pierre, Tom Vercauteren, Molly M. Stevens, and Mads S. Bergholt. The original paper can be found [here](https://pubs.acs.org/doi/10.1021/acs.analchem.1c02178), and much of the code for this work was derived or gathered from the original authors' repository available [here](https://github.com/conor-horgan/DeepeR). 
 
-[Conor C. Horgan](https://www.kcl.ac.uk/people/conor-horgan), [Magnus Jensen](https://www.kcl.ac.uk/people/magnus-jensen), [Anika Nagelkerke](https://www.rug.nl/staff/a.p.nagelkerke/), [Jean-Phillipe St-Pierre](https://engineering.uottawa.ca/people/st-pierre-jean-philippe), [Tom Vercauteren](https://www.kcl.ac.uk/people/tom-vercauteren), [Molly M. Stevens](http://www.stevensgroup.org/), and [Mads S. Bergholt](http://www.bergholtlab.com/), "High-throughput molecular imaging via deep learning enabled Raman spectroscopy", [Analytical Chemistry 2021, XXXX, XXX, XXX-XXX](https://doi.org/10.1021/acs.analchem.1c02178).
+Citation for the original study:
 
-The code was implemented in Python 3.7.3 using PyTorch 1.4.0 on a desktop computer with a Core i7-8700 CPU at 3.2 GHz (Intel), 32 GB of RAM, and a Titan V GPU (NVIDIA), running Windows 10 (Microsoft).
+Conor C. Horgan, Magnus Jensen, Anika Nagelkerke, Jean-Phillipe St-Pierre, Tom Vercauteren, Molly M. Stevens, and Mads S. Bergholt, "High-throughput molecular imaging via deep learning enabled Raman spectroscopy", *Analytical Chemistry* **2021** *93*(48), 15850-15860. DOI: 10.1021/acs.analchem.1c02178.
 
-## Contents
-1. [Introduction](#introduction)
-2. [Dataset](#dataset)
-3. [Training](#training)
-4. [Testing](#testing)
-5. [Results](#results)
-6. [Citation](#citation)
-7. [Acknowledgements](#acknowledgements)
+In addition, a U-Net segmentation model training pipeline was added based on *spectrai*, a separate tool developed by the authors for deep learning-based analysis of hyperspectral data. The original code for *spectrai* was made available [here](https://github.com/conor-horgan/spectrai) and the paper can be found [here](https://arxiv.org/abs/2108.07595). 
 
-## Introduction
-Raman spectroscopy enables non-destructive, label-free imaging with unprecedented molecular contrast but is limited by slow data acquisition, largely preventing high-throughput imaging applications. Here, we present a comprehensive framework for higher-throughput molecular imaging via deep learning enabled Raman spectroscopy, termed DeepeR, trained on a large dataset of hyperspectral Raman images, with over 1.5 million spectra (400 hours of acquisition) in total. We firstly perform denoising and re-construction of low signal-to-noise ratio Raman molecular signatures via deep learning, with a 10x improvement in mean squared error over common Raman filtering methods. Next, we develop a neural network for robust 2–4x spatial super-resolution of hyperspectral Raman images that preserves molecular cellular information. Combining these approaches, we achieve Raman imaging speed-ups of up to 40-90x, enabling good quality cellular imaging with high resolution, high signal-to-noise ratio in under one minute. We further demonstrate Raman imaging speed-up of 160x, useful for lower resolution imaging applications such as the rapid screening of large areas or for spectral pathology. Finally, transfer learning is applied to extend DeepeR from cell to tissue-scale imaging. DeepeR provides a foundation that will enable a host of higher-throughput Raman spectroscopy and molecular imaging applications across biomedicine.
+Citation for *spectrai*:
 
-DeepeR is designed to operate on hyperspectral Raman images, where high information-content Raman spectra at each pixel provide detailed insight into the molecular composition of cells/tissues. To improve the speed of Raman spectroscopic imaging and enable high-throughput applications, we first (i) train a 1D ResUNet neural network for Raman spectral denoising to effectively reconstruct a high SNR Raman spectrum (long acquisition time) from a corresponding low SNR input spectrum (short acquisition time). Next, we (ii) train a hyperspectral residual channel attention neural network to accurately reconstruct high spatial resolution hyperspectral Raman images from corresponding low spatial resolution hyper-spectral Raman images to significantly reduce imaging times. Then, by combining (i) and (ii) we achieve extreme speed-ups of up to 160x in Raman imaging time while maintaining high reconstruction fidelity. Finally, we (iii) demonstrate that transfer learning can be used to take our pre-trained neural networks (trained on large datasets) to operate on an entirely unrelated hyperspectral data domain for which there is only a limited dataset (insufficient to effectively train a neural network from scratch).
+Conor C. Horgan and Mads S. Bergholt, "spectrai: A deep learning framework for spectral data", *arXiv preprint* **2021**, arXiv:2108.07595. DOI: 10.48550/arXiv.2108.07595.
 
-![Figure_1](/Figures/Figure_1.png)
-DeepeR Overview.
+Below are instructions for performing various tasks, including training and evaluating models, visualizing results, and applying the model(s) to new data.
 
-## Dataset
-DeepeR was trained on a collection of hyperspectral Raman images, consisting of over 1.5 million Raman spectra (400 hours of acquisition) in total. The dataset will be made publicly available soon.
+## Data and Models
+Datasets used in the original work are available from links provided in the [authors' repository](https://github.com/conor-horgan/DeepeR#dataset). Also included are links to pre-trained spectral denoising and hyperspectral super-resolution models provided by the authors. Segmentation masks for the cell dataset were generated for this work and are available in `Segmentation/masks.zip`. 
+
+## Dependencies
+Model dependencies can be installed using the provided `environment.yml` file (note that this creates a new Conda environment named "DeepeR"):
+
+    ```bash
+    conda env create -f environment.yml
+    conda activate DeepeR
+    ```
 
 ## Training
-### Raman spectral denoising
-1. Download [dataset](https://drive.google.com/drive/folders/1590Zqr56txK5_hVlrfe7oEIdcKoUTEIH?usp=sharing).
-2. Edit /Raman Spectral Denoising/train.py to point towards the dataset path.
-3. In your python environment, run /Raman Spectral Denoising/train.py with your chosen options, e.g.:
+As described [by the authors](https://github.com/conor-horgan/DeepeR#training), training a new model can be accomplished by downloading the data and running the `train.py` script from the corresponding directory. For example:
+
     ```bash
-    python train.py --epochs 500 --batch-size 256 --optimizer adam --lr 5e-4 --scheduler one-cycle-lr --batch-norm 
-    ```
-### Hyperspectral super-resolution
-1. Download [dataset](https://drive.google.com/drive/folders/1W9vUVUCW21A4vw_KBjuMj3O5qlAzjdvi?usp=sharing).
-2. Edit /Hyperspectral Super-Resolution/train.py to point towards the dataset path.
-3. In your python environment, run /Hyperspectral Super-Resolution/train.py with your chosen options, e.g.:
-    ```bash
-    python train.py --epochs 600 --batch-size 2 --optimizer adam --lr 1e-5 --lr-image-size 16 --hr-image-size 64 
+    cd "Raman Spectral Denoising"
+    python train.py --features /path/to/training_inputs.mat --labels /path/to/training_outputs.mat --id my_new_model --epochs 500 --scheduler one-cycle-lr --seed 45 --batch-norm
     ```
 
-## Testing
-### Raman spectral denoising
-1. (Optionally) download [pre-trained model](https://drive.google.com/drive/folders/1ISE5yxZZcOYLZntN7L-knwOFrRtxpj42?usp=sharing).
-2. Edit /Raman Spectral Denoising/test.py to point towards the dataset path.
-3. In your python environment, run /Raman Spectral Denoising/test.py:
+for spectral denoising, or:
+
     ```bash
-    python test.py 
+    cd "Hyperspectral Super-Resolution"
+    python train.py --dataset /path/to/training_data_ids.csv --id my_new_model --epochs 600 --lr-image-size 16 --hr-image-size 64 --seed 45
     ```
-### Hyperspectral super-resolution
-1. (Optionally) download [pre-trained models](https://drive.google.com/drive/folders/1o8P3ztMcggd7-iQo8ohEEOYagJ6SBTpq?usp=sharing)
-2. Edit /Hyperspectral Super-Resolution/test.py to point towards the dataset path.
-3. In your python environment, run /Hyperspectral Super-Resolution/test.py:
+
+for hyperspectral super-resolution, or: 
+
     ```bash
-    python test.py 
+    cd "Segmentation"
+    python train.py --dataset /path/to/training_data_ids.csv --labels /path/to/training_masks_directory --dims 2 --classes 2 --id my_new_model --epochs 200 --image-size 64 --normalization None --seed 45
     ```
+
+for segmentation, where `/path/to/data` indicates an appropriate path. Utility wrappers are also provided here for the denoising and super-resolution models. For example, to train and evaluate a spectral denoising model using an 11-fold cross-validation procedure similar to that used in the original study, edit the parameters in lines 9-32 of `Raman Spectral Denoising/crossval.py`, save, and run:
+
+    ```bash
+    cd "Raman Spectral Denoising"
+    python crossval.py
+    ```
+
+To train and evaluate a hyperspectral super-resolution model (including splitting the data into training and test sets and writing out image ID .csv files like those expected by the data loader), edit the parameters in lines 10-37 of `Hyperspectral Super-Resolution/full_run.py`, save, and run:
+
+    ```bash
+    cd "Hyperspectral Super-Resolution"
+    python full_run.py
+    ```
+
+## Evaluation
+As described [by the authors](https://github.com/conor-horgan/DeepeR#testing), evaluating a trained model can be accomplished by downloading the data and model weights (or training a new model) and running the `test.py` script from the corresponding directory. For example:
+
+    ```bash
+    cd "Raman Spectral Denoising"
+    python test.py --features /path/to/test_inputs.mat --labels /path/to/test_outputs.mat --model /path/to/model.pt --seed 45
+    ```
+
+for spectral denoising, or:
+
+    ```bash
+    cd "Hyperspectral Super-Resolution"
+    python test.py --dataset /path/to/test_data_ids.csv --model /path/to/model.pt --lr-image-size 16 --hr-image-size 64 --seed 45
+    ```
+
+for hyperspectral super-resolution, or: 
+
+    ```bash
+    cd "Segmentation"
+    python test.py --dataset /path/to/test_data_ids.csv --labels /path/to/test_masks_directory --model /path/to/model.pt --dims 2 --classes 2 --image-size 64 --normalization None --seed 45
+    ```
+
+for segmentation, where `/path/to/data` or `/path/to/model` indicates an appropriate path to a dataset or model, respectively. To load and test a spectral denoising model (and baseline methods) on a single spectrum or collection of spectra and inspect/visualize the results, edit the paths and parameters in lines 12-13 and 39-46 of `Raman Spectral Denoising/visualize_results.py`, save, and run the file:
+
+    ```bash
+    cd "Raman Spectral Denoising"
+    python visualize_results.py
+    ```
+
+A method is also provided to extract endmember spectra from a hyperspectral image using vertex component analysis (VCA; similar to the original study) and visualize the results. This procedure is found in `Hyperspectral Super-Resolution/VCA.py`. To use, edit the paths and parameters in lines 14-15 and 216-225 of that file, save, and run the file:
+
+    ```bash
+    cd "Hyperspectral Super-Resolution"
+    python VCA.py
+    ```
+
+This file also includes methods for loading and inspecting/visualizing the results of a hyperspectral super-resolution model on a single image, as well as comparing model results to those of baseline methods. 
+
+To load and test a segmentation model on a hyperspectral image and inspect/visualize the results, edit the paths in lines 12-13 and 60 of `Segmentation/visualize_results.py`, save, and run the file:
+
+    ```bash
+    cd "Segmentation"
+    python visualize_results.py
+    ```
+
 ## Results
-### Raman spectral denoising
-![Figure_2](/Figures/Figure_2.png)
-Deep Learning Enabled Raman Denoising. (a) Exemplar test set pair of low SNR input Raman spectrum (light grey) and corresponding high SNR target Raman spectrum (dark grey) as well as the Savitzky-Golay (light blue), wavelet denoising (purple), PCA denoising (dark blue), and neural network (red) outputs for the given input spectrum (normalised to maximum peak intensity). (b) Mean squared error (performed across all spectral channels and all image pixels) across all test set hyperspectral Raman cell images for raw input spectra, 1D ResUNet output spectra, PCA denoising output spectra, wavelet denoising output spectra, and Savitzky-Golay output spectra (order x, frame width y) output spectra with respect to corresponding target spectra (n = 11) (error bars: mean ± STD) (one-way ANOVA with Dunnett’s multiple comparisons test against raw input spectra, *** P < 0.005). (c) Exemplar 1450 cm-1 peak intensity heatmaps for low SNR input hyperspectral Raman image, PCA denoising of input hyperspectral Raman image, 1D ResUNet output, and target high SNR hyperspectral Raman image with corresponding imaging times shown in white (min:sec) (scale bar = 10 µm). (d) Exemplar vertex component analysis (VCA) performed on target high SNR hyperspectral Raman image identifies 5 key components (proteins/lipids (red), nucleic acids (blue), proteins (green), lipids (yellow), and background (black)) which are applied to low SNR input, PCA denoising output, and 1D ResUNet output images via non-negatively constrained least-squares regression demonstrating that low SNR input and PCA denoising output data do not effectively identify different cell components. (e-f) Exemplar Raman spectra (white arrows in (c)) corresponding to (e) a lipid-rich cytoplasmic region and (f) the nucleus.
+Below shows the results (reported as mean-squared error or MSE) from applying the authors' provided spectral denoising model (`ResUNet.pt`) and a newly-trained model on the test dataset provided (`Test_Inputs.mat` and `Test_Outputs.mat`). Also included are the results from baseline methods as well as those reported in the original study for comparison, though reported results utilized different testing procedures (e.g. cross-validation) and methods for PCA/wavelet denoising.
 
-### Hyperspectral super-resolution
-![Figure_3](/Figures/Figure_3.png)
-Deep learning enabled hyperspectral image super-resolution. (a) 2x, 3x, and 4x super-resolution of example test set hyperspectral Raman image enables a significant reduction in imaging times (shown in white) while recovering important spatial and spectral information (scale bars = 10 µm). Images shown are the result of a VCA performed on the target HR hyperspectral Raman image, which identified 4 key components (nucleic acids (blue), proteins (green), lipids (yellow), and background (black)). VCA components were applied to the nearest neighbour output, bicubic output, and HyRISR output images via non-negatively constrained least-squares regression. (b) Exemplar Raman spectrum at white arrow in (a) demonstrating that the neural network output (red) is more closely aligned to the target (ground truth) spectrum (dark grey). (c-d) Mean test set (c) PSNR, (d) SSIM, (e) MSE values for nearest neighbour upsampling, bicubic upsampling, and HyRISR output for 2x, 3x, and 4x super-resolution (n = 9) (error bars: mean ± STD) (One-way paired analysis of variance (ANOVA) with Geisser-Greenhouse correction and Tukey’s multiple comparisons test, * P < 0.05, ** P < 0.01, *** P < 0.001).
+| | Newly-Trained Model | Authors' Model | Reported |
+| --- | --- | --- | --- |
+| **ResUNet** | 0.00205 | 0.00195 | 0.00285 |
+| **Savitzky-Golay** | 0.0277 | 0.0277 | ~0.0550 | 
+| **PCA** | 0.0196 | 0.0196 | 0.0296 |
+| **Wavelet** | 0.0207 | 0.0207 | 0.0475 |
 
-### Combined Raman spectral denoising and hyperspectral super-resolution
-![Figure_4](/Figures/Figure_4.png)
-Combined Raman spectral denoising and hyperspectral image super-resolution enables extreme speed-ups in Raman imaging time. (a) Sequential application of Raman spectral denoising followed by hyperspectral image super-resolution enables extreme speed-ups in imaging time (shown in white) from 68:15 (min:sec) to 01:42 for 2x super-resolution, 00:44 for 3x super-resolution, and 00:26 for 4x super-resolution while largely preserving molecular information (scale bars = 10 µm). Images shown are the result of a VCA performed on the target HR, high SNR hyperspectral Raman image, which identified 4 key components (nucleic acids (blue), proteins (green), lipids (yellow), and background (black)). VCA compo-nents were applied to input, Savitky-Golay pluc bicubic upsampling, PCA plus bicubic upsampling, and neural network out-put images via non-negatively constrained least-squares regression. (b) Pixel classification accuracy for input, Savitzky-Golay filtering plus bicubic upsampling output, PCA denoising plus bicubic upsampling output, and neural network output images as compared to VCA pixel classification of target HR, high SNR hyperspectral Raman image.
+The following tables show the results from applying the authors' provided hyperspectral super-resolution models (`RCAN_2x.pt`, `RCAN_3x.pt`, and `RCAN_4x.pt`) as well as newly-trained models on a random test dataset selected from the images provided (see `Hyperspectral Super-Resolution/full_run.py`). Results are shown for all three resolution scales (2x, 3x, and 4x) and the three metrics (MSE, structural similarity (SSIM), and peak signal-to-noise ratio (PSNR)) are shown in different tables. Once again, results from baseline methods and the original study's reported results are included for comparison, though the reported results were generated from a different test set. 
 
-### Transfer learning
-![Figure_5](/Figures/Figure_5.png)
-Transfer learning enables effective super-resolution for a small dataset of tissue-engineered cartilage hyperspectral Raman images. (a) Transfer learning of our HISR neural network, trained only on MDA-MB-231 breast cancer cell imag-es, enabled effective cross-domain 4x super-resolution of hyperspectral Raman images despite having only a very small dataset of tissue-engineered cartilage for training. For each condition, images shown on the left are the result of a VCA performed on the target HR, high SNR hyperspectral Raman image, which identified 5 key components (substrate (blue), dense ECM/cells (green), sparse ECM (yellow), cells (red), and background (black)). VCA components were applied to nearest neighbour upsampling, bicubic upsampling, tissue model (from scratch), and cell model (transfer learning) images via non-negatively constrained least-squares regression. Images shown on the right for each condition are 1450 cm-1 peak intensity heatmaps. All images formed as composition of overlapping 64x64 pixel image patches (scale bars = 10 µm). (b) Exemplar Raman spectrum (white arrow in (a)) demonstrating that transfer learning achieves high accuracy reconstruc-tion of the target spectra for each pixel. (c-d) Mean test set (c) PSNR and (d) SSIM values for nearest neighbour upsam-pling, bicubic upsampling, and neural network outputs for 4x super-resolution, calculated on a per-image patch basis (n = 12 patches) (Error bars: mean ± STD) (One-way paired analysis of variance (ANOVA) with Geisser-Greenhouse correction and Tukey’s multiple comparisons test, * P < 0.05, ** P < 0.01, *** P < 0.001).
+### 2x
+| | Newly-Trained Model | Authors' Model | Reported |
+| --- | --- | --- | --- |
+| **RCAN (MSE)** | 0.0000963 | 0.0000952 | 0.0000780 |
+| **Bicubic (MSE)** | 0.000147 | 0.000147 | 0.000114 |
+| **Nearest Neighbor (MSE)** | 0.000161 | 0.000161 | 0.000129 |
+| **RCAN (SSIM)** | 0.840 | 0.821 | 0.845 |
+| **Bicubic (SSIM)** | 0.683 | 0.623 | 0.642 |
+| **Nearest Neighbor (SSIM)** | 0.655 | 0.586 | 0.635 |
+| **RCAN (PSNR)** | 39.218 | 39.008 | 41.990 |
+| **Bicubic (PSNR)** | 39.882 | 39.503 | 40.390 |
+| **Nearest Neighbor (PSNR)** | 39.591 | 38.942 | 39.900 |
 
-## Citation
-If you find this code helpful in your work, please cite the following [paper](https://doi.org/10.1021/acs.analchem.1c02178):
+### 3x
+| | Newly-Trained Model | Authors' Model | Reported |
+| --- | --- | --- | --- |
+| **RCAN (MSE)** | 0.000143 | 0.000143 | 0.000110 |
+| **Bicubic (MSE)** | 0.000187 | 0.000187 | 0.000150 |
+| **Nearest Neighbor (MSE)** | 0.000247 | 0.000247 | 0.000201 |
+| **RCAN (SSIM)** | 0.838 | 0.817 | 0.842 |
+| **Bicubic (SSIM)** | 0.644 | 0.574 | 0.631 |
+| **Nearest Neighbor (SSIM)** | 0.627 | 0.562 | 0.626 |
+| **RCAN (PSNR)** | 37.137 | 36.819 | 40.610 |
+| **Bicubic (PSNR)** | 38.149 | 38.123 | 39.280 |
+| **Nearest Neighbor (PSNR)** | 36.884 | 36.734 | 38.130 |
 
-Conor C. Horgan, Magnus Jensen, Anika Nagelkerke, Jean-Phillipe St-Pierre, Tom Vercauteren, Molly M. Stevens, and Mads S. Bergholt, "High-throughput molecular imaging via deep learning enabled Raman spectroscopy", Analytical Chemistry 2021, XXXX, XXX, XXX-XXX.
+### 4x
+| | Newly-Trained Model | Authors' Model | Reported |
+| --- | --- | --- | --- |
+| **RCAN (MSE)** | 0.000202 | 0.000202 | 0.000159 |
+| **Bicubic (MSE)** | 0.000258 | 0.000260 | 0.000239 |
+| **Nearest Neighbor (MSE)** | 0.000325 | 0.000339 | 0.000309 |
+| **RCAN (SSIM)** | 0.847 | 0.800 | 0.828 |
+| **Bicubic (SSIM)** | 0.650 | 0.483 | 0.549 |
+| **Nearest Neighbor (SSIM)** | 0.632 | 0.448 | 0.526 |
+| **RCAN (PSNR)** | 34.696 | 34.688 | 39.270 |
+| **Bicubic (PSNR)** | 36.461 | 36.679 | 37.590 |
+| **Nearest Neighbor (PSNR)** | 35.308 | 35.600 | 36.570 |
 
-arXiv link: [arXiv:2009.13318](https://arxiv.org/abs/2009.13318)
+Training a new U-Net segmentation model for 200 epochs resulted in an average cross-entropy loss of 0.343 on the test dataset. 
 
 ## Acknowledgements
-Parts of DeepeR were built on [RCAN](https://github.com/yulunzhang/RCAN). We thank the authors for making their code publicly available.
+Thank you to Horgan *et al.* for sharing their work, including code, data, and models. Their studies can be accessed and cited from [here](https://pubs.acs.org/doi/10.1021/acs.analchem.1c02178) and [here](https://arxiv.org/abs/2108.07595). 
