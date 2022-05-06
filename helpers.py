@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib
+from PIL import Image
 from skimage.metrics import structural_similarity as sk_ssim
 
 def load_image(base_path, id_name):
@@ -21,15 +22,25 @@ def load_spectra(base_path, file_name):
     values = list(data.values())
     return values[3]
 
-def plot_image(img, cmap = 'viridis', title = None, file = None, show = True):
+def load_mask(base_path, id_name):
+    ''' Load a mask PNG file for segmentation '''
+    mask_path = os.path.join(base_path, id_name + ".png")
+    mask_img = Image.open(mask_path)
+    mask = np.asarray(mask_img).astype(np.float64)
+    #mask -= 1
+    return mask
+
+def plot_image(img, title = None, colorbar = False, file = None, show = True, **kwargs):
     ''' Plot a single hyperspectral image '''
-    if img.ndim == 3:
+    if img.ndim == 3 and img.shape[2] > 3:
         img = img.mean(axis = 2)
     fig, ax = plt.subplots(1, 1, figsize = (7,5))
-    ax.imshow(img, cmap = cmap, interpolation = 'nearest')
+    img = ax.imshow(img, **kwargs)
     ax.axis('off')
     if title:
         ax.set_title(title)
+    if colorbar:
+        plt.colorbar(img)
     fig.tight_layout()
     if file:
         plt.savefig(file)
