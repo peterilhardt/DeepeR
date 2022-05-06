@@ -211,8 +211,8 @@ def main_worker(gpu, ngpus_per_node, args):
         train_sampler = None
         val_sampler = None
         
-    train_loader = DataLoader(Raman_Dataset_Train, batch_size = args.batch_size, shuffle = False, 
-        num_workers = 0, pin_memory = True, sampler = train_sampler)
+    train_loader = DataLoader(Raman_Dataset_Train, batch_size = args.batch_size, 
+        shuffle = not args.distributed, num_workers = 0, pin_memory = True, sampler = train_sampler)
     val_loader = DataLoader(Raman_Dataset_Val, batch_size = args.batch_size, shuffle = False, 
         num_workers = 0, pin_memory = True, sampler = val_sampler)
 
