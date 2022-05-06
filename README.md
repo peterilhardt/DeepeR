@@ -19,91 +19,91 @@ Datasets used in the original work are available from links provided in the [aut
 ## Dependencies
 Model dependencies can be installed using the provided `environment.yml` file (note that this creates a new Conda environment named "DeepeR"):
 
-    ```bash
-    conda env create -f environment.yml
-    conda activate DeepeR
-    ```
+```bash
+conda env create -f environment.yml
+conda activate DeepeR
+```
 
 ## Training
 As described [by the authors](https://github.com/conor-horgan/DeepeR#training), training a new model can be accomplished by downloading the data and running the `train.py` script from the corresponding directory. For example:
 
-    ```bash
-    cd "Raman Spectral Denoising"
-    python train.py --features /path/to/training_inputs.mat --labels /path/to/training_outputs.mat --id my_new_model --epochs 500 --scheduler one-cycle-lr --seed 45 --batch-norm
-    ```
+```bash
+cd "Raman Spectral Denoising"
+python train.py --features /path/to/training_inputs.mat --labels /path/to/training_outputs.mat --id my_new_model --epochs 500 --scheduler one-cycle-lr --seed 45 --batch-norm
+```
 
 for spectral denoising, or:
 
-    ```bash
-    cd "Hyperspectral Super-Resolution"
-    python train.py --dataset /path/to/training_data_ids.csv --id my_new_model --epochs 600 --lr-image-size 16 --hr-image-size 64 --seed 45
-    ```
+```bash
+cd "Hyperspectral Super-Resolution"
+python train.py --dataset /path/to/training_data_ids.csv --id my_new_model --epochs 600 --lr-image-size 16 --hr-image-size 64 --seed 45
+```
 
 for hyperspectral super-resolution, or: 
 
-    ```bash
-    cd "Segmentation"
-    python train.py --dataset /path/to/training_data_ids.csv --labels /path/to/training_masks_directory --dims 2 --classes 2 --id my_new_model --epochs 200 --image-size 64 --normalization None --seed 45
-    ```
+```bash
+cd "Segmentation"
+python train.py --dataset /path/to/training_data_ids.csv --labels /path/to/training_masks_directory --dims 2 --classes 2 --id my_new_model --epochs 200 --image-size 64 --normalization None --seed 45
+```
 
 for segmentation, where `/path/to/data` indicates an appropriate path. Utility wrappers are also provided here for the denoising and super-resolution models. For example, to train and evaluate a spectral denoising model using an 11-fold cross-validation procedure similar to that used in the original study, edit the parameters in lines 9-32 of `Raman Spectral Denoising/crossval.py`, save, and run:
 
-    ```bash
-    cd "Raman Spectral Denoising"
-    python crossval.py
-    ```
+```bash
+cd "Raman Spectral Denoising"
+python crossval.py
+```
 
 To train and evaluate a hyperspectral super-resolution model (including splitting the data into training and test sets and writing out image ID .csv files like those expected by the data loader), edit the parameters in lines 10-37 of `Hyperspectral Super-Resolution/full_run.py`, save, and run:
 
-    ```bash
-    cd "Hyperspectral Super-Resolution"
-    python full_run.py
-    ```
+```bash
+cd "Hyperspectral Super-Resolution"
+python full_run.py
+```
 
 ## Evaluation
 As described [by the authors](https://github.com/conor-horgan/DeepeR#testing), evaluating a trained model can be accomplished by downloading the data and model weights (or training a new model) and running the `test.py` script from the corresponding directory. For example:
 
-    ```bash
-    cd "Raman Spectral Denoising"
-    python test.py --features /path/to/test_inputs.mat --labels /path/to/test_outputs.mat --model /path/to/model.pt --seed 45
-    ```
+```bash
+cd "Raman Spectral Denoising"
+python test.py --features /path/to/test_inputs.mat --labels /path/to/test_outputs.mat --model /path/to/model.pt --seed 45
+```
 
 for spectral denoising, or:
 
-    ```bash
-    cd "Hyperspectral Super-Resolution"
-    python test.py --dataset /path/to/test_data_ids.csv --model /path/to/model.pt --lr-image-size 16 --hr-image-size 64 --seed 45
-    ```
+```bash
+cd "Hyperspectral Super-Resolution"
+python test.py --dataset /path/to/test_data_ids.csv --model /path/to/model.pt --lr-image-size 16 --hr-image-size 64 --seed 45
+```
 
 for hyperspectral super-resolution, or: 
 
-    ```bash
-    cd "Segmentation"
-    python test.py --dataset /path/to/test_data_ids.csv --labels /path/to/test_masks_directory --model /path/to/model.pt --dims 2 --classes 2 --image-size 64 --normalization None --seed 45
-    ```
+```bash
+cd "Segmentation"
+python test.py --dataset /path/to/test_data_ids.csv --labels /path/to/test_masks_directory --model /path/to/model.pt --dims 2 --classes 2 --image-size 64 --normalization None --seed 45
+```
 
 for segmentation, where `/path/to/data` or `/path/to/model` indicates an appropriate path to a dataset or model, respectively. To load and test a spectral denoising model (and baseline methods) on a single spectrum or collection of spectra and inspect/visualize the results, edit the paths and parameters in lines 12-13 and 39-46 of `Raman Spectral Denoising/visualize_results.py`, save, and run the file:
 
-    ```bash
-    cd "Raman Spectral Denoising"
-    python visualize_results.py
-    ```
+```bash
+cd "Raman Spectral Denoising"
+python visualize_results.py
+```
 
 A method is also provided to extract endmember spectra from a hyperspectral image using vertex component analysis (VCA; similar to the original study) and visualize the results. This procedure is found in `Hyperspectral Super-Resolution/VCA.py`. To use, edit the paths and parameters in lines 14-15 and 216-225 of that file, save, and run the file:
 
-    ```bash
-    cd "Hyperspectral Super-Resolution"
-    python VCA.py
-    ```
+```bash
+cd "Hyperspectral Super-Resolution"
+python VCA.py
+```
 
 This file also includes methods for loading and inspecting/visualizing the results of a hyperspectral super-resolution model on a single image, as well as comparing model results to those of baseline methods. 
 
 To load and test a segmentation model on a hyperspectral image and inspect/visualize the results, edit the paths in lines 12-13 and 60 of `Segmentation/visualize_results.py`, save, and run the file:
 
-    ```bash
-    cd "Segmentation"
-    python visualize_results.py
-    ```
+```bash
+cd "Segmentation"
+python visualize_results.py
+```
 
 ## Results
 Below shows the results (reported as mean-squared error or MSE) from applying the authors' provided spectral denoising model (`ResUNet.pt`) and a newly-trained model on the test dataset provided (`Test_Inputs.mat` and `Test_Outputs.mat`). Also included are the results from baseline methods as well as those reported in the original study for comparison, though reported results utilized different testing procedures (e.g. cross-validation) and methods for PCA/wavelet denoising.
