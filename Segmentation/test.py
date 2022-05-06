@@ -159,10 +159,11 @@ def main_worker(gpu, ngpus_per_node, args):
         if args.use_gpu:
             torch.cuda.set_device(args.gpu)
             net.cuda(args.gpu)
-            net = torch.nn.parallel.DistributedDataParallel(net, device_ids=[args.gpu])
+            net = torch.nn.parallel.DistributedDataParallel(net, device_ids = [args.gpu], 
+                                                            find_unused_parameters = True)
         else:
             net.to(args.device)
-            net = torch.nn.parallel.DistributedDataParallel(net)
+            net = torch.nn.parallel.DistributedDataParallel(net, find_unused_parameters = True)
     else:
         args.rank = 0 
         if args.use_gpu:
