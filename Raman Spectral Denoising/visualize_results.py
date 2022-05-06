@@ -25,7 +25,11 @@ def load_ResUNet(model_path, batch_norm = True):
 def apply_ResUNet(model, spectrum):
     ''' Apply loaded ResUNet model to spectrum '''
     # Torch expects an extra dimension and a batch dimension
-    spec = spectrum.reshape(1, -1)[np.newaxis, ...]
+    if spectrum.ndim == 1:
+        spec = spectrum.reshape(1, -1)[np.newaxis, ...]
+    else:
+        spec_length = spectrum.shape[-1]
+        spec = spectrum.reshape(-1, 1, spec_length)
     spec = torch.tensor(spec).float().to(torch.device('cpu'))
 
     model.eval()
