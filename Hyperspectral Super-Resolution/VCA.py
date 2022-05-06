@@ -4,12 +4,14 @@ from scipy.optimize import nnls
 import matplotlib.pyplot as plt
 import matplotlib
 
+import torch
+
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+import model
+
 sys.path.append('..')
 from helpers import load_image, plot_spec_overlay, plot_spec_multi, \
     normalize, plot_image, downsample, upsample
-
-import torch
-import model
 
 DATA_BASE_PATH = r'../../data/hyperspectral_super_resolution_data'
 MODEL_BASE_PATH = r'../../models'
